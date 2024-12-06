@@ -1,8 +1,8 @@
 const Header = () => {
   return (
-    <header className="text-3xl font-bold mb-4">
+    <header className="text-3xl text-red-400 font-bold mb-4 ">
       Dashboard
-      <p className="text-lg text-gray-500">Create new notes</p>
+      <p className="text-lg text-red-300 mt-4">Create new notes</p>
     </header>
   );
 };
