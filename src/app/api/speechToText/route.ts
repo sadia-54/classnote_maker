@@ -1,61 +1,62 @@
-import { IncomingMessage, ServerResponse } from 'http';
-import formidable, { Fields, File, Files } from 'formidable';
-import fs from 'fs';
-import axios from 'axios';
-import { NextApiResponse } from 'next';
+// --- server-side API handler --- 
+import { NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
+import * as dotenv from "dotenv";
+import fetch from "node-fetch"; // Import node-fetch for server-side HTTP requests
 
-export const config = {
-  api: {
-    bodyParser: false, // Disable Next.js body parser to handle form data manually
-  },
-};
+dotenv.config();
 
-const handler = async (req: IncomingMessage, res: NextApiResponse) => {
-  const form = new formidable.IncomingForm();
+const gcpApiKey = process.env.GCP_API_KEY as string; // GCP API Key from .env file
 
-  form.parse(req, async (err: Error | null, fields: Fields, files: Files<string>) => {
-    if (err) {
-      res.status(400).json({ error: 'Error parsing the form data' });
-      return;
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const base64Audio = body.audio;
+    
+    if (!base64Audio) {
+      return NextResponse.json({ error: "Audio data is missing" }, { status: 400 });
     }
 
-    // Ensure an audio file is uploaded
-    if (!files.audio) {
-      res.status(400).json({ error: 'No audio file uploaded' });
-      return;
+    // Convert base64 to Buffer (audio data)
+    const audioBuffer = Buffer.from(base64Audio, "base64");
+    const filePath = path.join("tmp", "input.wav");
+
+    // Create the tmp directory if it does not exist
+    if (!fs.existsSync("tmp")) {
+      fs.mkdirSync("tmp");
     }
 
-    const file = Array.isArray(files.audio) ? files.audio[0] : files.audio; // Handle single/multiple file uploads
-    const filePath = file.filepath;
+    // Write the audio file to disk temporarily
+    fs.writeFileSync(filePath, audioBuffer);
 
-    try {
-      // Send the audio file to Google Cloud Speech-to-Text API
-      const apiKey = process.env.GCP_API_KEY; // Store your API key in .env
-      const audioData = fs.readFileSync(filePath);
-      const response = await axios.post(
-        `https://speech.googleapis.com/v1p1beta1/speech:recognize?key=${apiKey}`,
-        {
-          config: {
-            encoding: 'LINEAR16',
-            sampleRateHertz: 16000,
-            languageCode: 'en-US',
-          },
-          audio: {
-            content: audioData.toString('base64'),
-          },
-        }
-      );
+    const fileData = fs.readFileSync(filePath);
 
-      const text = response.data.results
-        .map((result: any) => result.alternatives[0].transcript)
-        .join(' ');
+    // Send the audio data to Google's Speech API for transcription
+    const response = await fetch(`https://speech.googleapis.com/v1/speech:recognize?key=${gcpApiKey}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        config: {
+          encoding: "LINEAR16", // Audio encoding (ensure it matches your audio format)
+          languageCode: "en-US", // Language of the audio
+        },
+        audio: {
+          content: fileData.toString("base64"), // Send audio content as base64
+        },
+      }),
+    });
 
-      res.status(200).json({ text });
-    } catch (error) {
-      console.error('Error during speech-to-text processing', error);
-      res.status(500).json({ error: 'Error converting audio to text' });
-    }
-  });
-};
+    const transcriptionData = await response.json();
+    
+    // Clean up: remove the temporary audio file after use
+    fs.unlinkSync(filePath);
 
-export default handler;
+    return NextResponse.json(transcriptionData);
+  } catch (error) {
+    console.error("Error processing audio:", error);
+    return NextResponse.json({ error: "Failed to process the audio." }, { status: 500 });
+  }
+}

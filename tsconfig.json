@@ -27,7 +27,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "src/global.d.ts"  // Add this line
+    "src/global.d.ts"  // Ensure global.d.ts is included
   ],
   "exclude": ["node_modules"]
 }
+

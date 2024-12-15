@@ -2,9 +2,9 @@ import React from "react";
 import MicIcon from "@mui/icons-material/Mic";
 import YouTubeIcon from "@mui/icons-material/YouTube";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import Sidebar from "@/components/Sidebar";
-import Header from "@/components/Header";
-import Card from "@/components/Card";
+import Sidebar from "../components/Sidebar";
+import Header from "../components/Header";
+import Card from "../components/Card";
 
 const Dashboard = () => {
   return (
